@@ -1,0 +1,120 @@
+# Gene Prioritizer
+
+AI-powered phenotype-to-gene candidate ranking for clinical genetics research.
+
+**Stack**: Next.js 14 · TypeScript · Anthropic Claude · HPO JAX API · HGNC · Exomiser (optional) · Pinecone (optional)
+
+---
+
+## Quick start (local)
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/YOUR_USERNAME/gene-prioritizer.git
+cd gene-prioritizer
+
+# 2. Install dependencies
+npm install
+
+# 3. Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local and add your ANTHROPIC_API_KEY
+
+# 4. Run the dev server
+npm run dev
+# Open http://localhost:3000
+```
+
+---
+
+## Deploy to Vercel (5 minutes)
+
+1. Push this repo to GitHub
+2. Go to [vercel.com](https://vercel.com) → New Project → Import your repo
+3. In Vercel dashboard → Settings → Environment Variables, add:
+   - `ANTHROPIC_API_KEY` ← required
+   - `EXOMISER_API_URL` ← optional, if you run the Java service
+   - `PINECONE_API_KEY` ← optional, for private literature RAG
+   - `PINECONE_INDEX` ← optional, default: `gene-literature`
+4. Click Deploy — done. Every future `git push main` auto-deploys.
+
+---
+
+## Adding a new feature
+
+```bash
+git checkout -b feature/your-feature-name
+# ... write code ...
+git add .
+git commit -m "feat: describe what you added"
+git push origin feature/your-feature-name
+# Open a Pull Request on GitHub
+# Vercel posts a preview URL automatically
+# Tests run via GitHub Actions
+# Merge → production deploys in ~30s
+```
+
+---
+
+## Architecture
+
+```
+app/
+├── page.tsx                    # Main UI
+├── components/
+│   ├── HPOSearch.tsx           # Live HPO term search + chip selector
+│   ├── GeneCard.tsx            # Result card per candidate gene
+│   └── ProgressSteps.tsx       # Analysis progress indicator
+├── api/
+│   ├── prioritize/route.ts     # Main orchestration endpoint
+│   ├── hpo/route.ts            # HPO search proxy
+│   ├── validate-genes/route.ts # HGNC hallucination guard endpoint
+│   ├── exomiser/route.ts       # Exomiser health check
+│   └── literature/route.ts     # Private literature upload
+lib/
+├── claude.ts                   # Anthropic API helpers (extraction + prioritization)
+├── hpo.ts                      # HPO JAX API client
+├── hgnc.ts                     # HGNC hallucination guard
+├── exomiser.ts                 # Exomiser REST client + score merger
+└── literature.ts               # Pinecone RAG for private papers
+types/index.ts                  # Shared TypeScript types
+__tests__/                      # Unit tests (jest)
+.github/workflows/ci.yml        # GitHub Actions: lint + test + build on every PR
+```
+
+---
+
+## Optional services
+
+### Exomiser (full variant prioritization)
+
+Exomiser needs a persistent server — it can't run on Vercel's serverless functions.
+
+```bash
+# On Railway / Fly.io / EC2:
+# 1. Download the JAR
+wget https://github.com/exomiser/Exomiser/releases/download/15.0.0/exomiser-cli-15.0.0.zip
+
+# 2. Download phenotype data (~5 GB)
+wget https://data.monarchinitiative.org/exomiser/latest/phenotype.zip
+
+# 3. Run the REST prioritiser (wraps the JAR in a lightweight HTTP server)
+# See /exomiser-service/README.md in this repo for the FastAPI wrapper
+
+# 4. Set EXOMISER_API_URL=https://your-service.railway.app in Vercel
+```
+
+### Private literature (Pinecone RAG)
+
+1. Create a [Pinecone](https://pinecone.io) account (free tier available)
+2. Create an index named `gene-literature` with dimension matching your embedding model
+3. Add `PINECONE_API_KEY` and `PINECONE_INDEX` to Vercel env vars
+4. Configure `embedText()` in `lib/literature.ts` with your embedding provider
+5. Upload papers via `POST /api/literature/upload`
+
+---
+
+## Disclaimer
+
+For research and educational purposes only. Not validated for clinical diagnostic use.
+Always verify results with a clinical geneticist and confirmatory variant analysis.

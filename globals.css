@@ -1,0 +1,107 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import type { HPOTerm } from "@/types";
+import styles from "./HPOSearch.module.css";
+
+interface Props {
+  selectedTerms: HPOTerm[];
+  onAdd: (term: HPOTerm) => void;
+  onRemove: (id: string) => void;
+}
+
+export default function HPOSearch({ selectedTerms, onAdd, onRemove }: Props) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<HPOTerm[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  async function search(q: string) {
+    if (q.length < 2) { setResults([]); setOpen(false); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/hpo?q=${encodeURIComponent(q)}&max=8`);
+      const data = await res.json();
+      setResults(data.terms || []);
+      setOpen(true);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleInput(val: string) {
+    setQuery(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => search(val), 300);
+  }
+
+  function pick(term: HPOTerm) {
+    onAdd(term);
+    setQuery("");
+    setResults([]);
+    setOpen(false);
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={wrapRef} className={styles.wrap}>
+      <div className={styles.searchRow}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleInput(e.target.value)}
+          placeholder="Search HPO (e.g. seizure, hypotonia...)"
+          onFocus={() => results.length && setOpen(true)}
+        />
+        {loading && <span className={styles.spinner} aria-hidden />}
+      </div>
+
+      {open && results.length > 0 && (
+        <ul className={styles.dropdown} role="listbox">
+          {results.map((t) => (
+            <li
+              key={t.id}
+              role="option"
+              aria-selected={!!selectedTerms.find((s) => s.id === t.id)}
+              className={`${styles.option} ${selectedTerms.find((s) => s.id === t.id) ? styles.optionSelected : ""}`}
+              onClick={() => pick(t)}
+            >
+              <span className={styles.optionName}>{t.name}</span>
+              <span className={styles.optionCode}>{t.id}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {selectedTerms.length > 0 && (
+        <div className={styles.chips} aria-label="Selected HPO terms">
+          {selectedTerms.map((t) => (
+            <span key={t.id} className={styles.chip}>
+              <span className={styles.chipCode}>{t.id}</span>
+              <span className={styles.chipName}>{t.name}</span>
+              <button
+                onClick={() => onRemove(t.id)}
+                aria-label={`Remove ${t.name}`}
+                className={styles.chipRemove}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

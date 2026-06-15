@@ -1,0 +1,12 @@
+# Copy this to .env.local and fill in your values
+# NEVER commit .env.local to GitHub
+
+# Required: Anthropic API key (get from console.anthropic.com)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Optional: Exomiser backend (only needed if you run the Java service)
+EXOMISER_API_URL=http://localhost:8080
+
+# Optional: Pinecone for private literature RAG
+PINECONE_API_KEY=your-pinecone-key
+PINECONE_INDEX=gene-literature
